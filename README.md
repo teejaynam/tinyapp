@@ -1,7 +1,7 @@
-### TinyApp
+# TinyApp 🦆
 
 by Taek Joon Nam, for LHL, non-production use
 
-## Description
+### Description
 
 This app shortens URLs!
