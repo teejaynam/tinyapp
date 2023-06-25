@@ -19,7 +19,7 @@ function generateRandomString() {
 }
 
 //the database for our urls
-let urlDatabase = {
+const urlDatabase = {
   "b2xVn2": "http://www.lighthouselabs.ca",
   "9sm5xK": "http://www.google.com"
 };
@@ -47,6 +47,12 @@ app.post("/urls", (req, res) => {
 
   //add redirect to use new id
   res.redirect(`/urls/${id}`);
+});
+
+//post req to update urls but keep the id
+app.post("/urls/:id", (req,res) => {
+  urlDatabase[req.params.id] = req.body.longURL;
+  res.redirect("/urls")
 });
 
 //post req to delete urls from db
