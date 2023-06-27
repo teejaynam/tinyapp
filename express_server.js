@@ -1,5 +1,6 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
+const e = require("express");
 const app = express();
 const PORT = 8080;
 
@@ -25,6 +26,20 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
+//the database for usernames
+const users = {
+  userRandomID: {
+    id: "userRandomID",
+    email: "user@example.com",
+    password: "purple-monkey-dinosaur",
+  },
+  user2RandomID: {
+    id: "user2RandomID",
+    email: "user2@example.com",
+    password: "dishwasher-funk",
+  },
+};
+
 //root page 
 app.get("/", (req,res) => {
   res.send("Hello!");
@@ -32,10 +47,13 @@ app.get("/", (req,res) => {
 
 //urls db page
 app.get("/urls", (req,res) => {
-  //const { username } = req.body;
-  //res.cookie("username", username);
-  const templateVars = { urls: urlDatabase, username : req.cookies["username"] };
-  res.render('urls_index', templateVars );
+  if (users[req.cookies.user_id]) {
+    const templateVars = { urls: urlDatabase, email : users[req.cookies.user_id].email };
+    res.render('urls_index', templateVars);
+  } else {
+    const templateVars = { urls: urlDatabase, email : " "};
+    res.render('urls_index', templateVars);
+  }
 });
 
 //post req to urls appends to our url db with a new shortened url
@@ -77,34 +95,67 @@ app.post("/logout", (req,res) => {
 
 //page to do post request
 app.get("/urls/new", (req, res) => {
-  const templateVars = {  username : req.cookies["username"] };
-  res.render("urls_new", templateVars);
+  if (users[req.cookies.user_id]) {
+    const templateVars = { email : users[req.cookies.user_id].email };
+    res.render("urls_new", templateVars);
+  } else {
+    const templateVars = { email : " "};
+    res.render("urls_new", templateVars);
+  }
 });
 
 //page to show long url version of shortened url with path /urls/:id
 app.get("/urls/:id", (req, res) => {
-  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], username: req.cookies["username"] };
-  res.render("urls_show", templateVars);
+  if (users[req.cookies.user_id]) {
+    const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], email : users[req.cookies.user_id].email };
+    res.render("urls_show", templateVars);
+  } else {
+    const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], email : " "};
+    res.render("urls_show", templateVars);
+  }
 });
 
+//redirect to the long url
 app.get("/u/:id", (req, res) => {
   const longURL = urlDatabase[req.params.id];
-  const templateVars = {  username : req.cookies["username"] };
-  res.redirect(`${longURL}`, templateVars)
+  if (users[req.cookies.user_id]) {
+    const templateVars = { email : users[req.cookies.user_id].email };
+    res.render(`${longURL}`, templateVars);
+  } else {
+    const templateVars = { email : " "};
+    res.render(`${longURL}`, templateVars);
+  }
 })
 
+//page to show registration page
 app.get("/register", (req,res) => {
-  const templateVars = {  username : req.cookies["username"] };
-  res.render("register", templateVars)
+  if (users[req.cookies.user_id]) {
+    const templateVars = { email : users[req.cookies.user_id].email }
+    res.render("register", templateVars)
+  } else {
+    const templateVars = {  email : "" };
+    res.render("register", templateVars)
+  }
 })
 
-
+//post handler to append to our users db
 app.post("/register", (req,res) => {
   let email = req.body.email;
   let password = req.body.password;
-  res.send(email,password);
-})
+  let userId = generateRandomString();
 
+  const newUser = {
+    id : userId,
+    email : email,
+    password : password
+  }
+
+  users[newUser.id] = newUser;
+  res.cookie('user_id', userId);
+
+
+  res.redirect("/urls")
+})
 
 app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
