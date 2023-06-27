@@ -7,7 +7,7 @@ const PORT = 8080;
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }),cookieParser());
 
-//our alphanumeric random string generator for shortened urls 
+//our alphanumeric random string generator for shortened urls
 function generateRandomString() {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let randomString = '';
@@ -18,6 +18,15 @@ function generateRandomString() {
   }
   
   return randomString;
+}
+
+function checkEmail(email) {
+  for (let userId in users) {
+    if (users[userId].email === email) {
+      return true;
+    }
+  }
+  return false;
 }
 
 //the database for our urls
@@ -40,7 +49,7 @@ const users = {
   },
 };
 
-//root page 
+//root page
 app.get("/", (req,res) => {
   res.send("Hello!");
 });
@@ -85,13 +94,13 @@ app.post("/login", (req,res) => {
   const username = req.body.username;
   res.cookie('username', username);
   res.redirect("/urls");
-})
+});
 
 //post req to /logout and clear cookie
 app.post("/logout", (req,res) => {
   res.clearCookie('username');
   res.redirect("/urls");
-})
+});
 
 //page to do post request
 app.get("/urls/new", (req, res) => {
@@ -125,18 +134,18 @@ app.get("/u/:id", (req, res) => {
     const templateVars = { email : " "};
     res.render(`${longURL}`, templateVars);
   }
-})
+});
 
 //page to show registration page
 app.get("/register", (req,res) => {
   if (users[req.cookies.user_id]) {
-    const templateVars = { email : users[req.cookies.user_id].email }
-    res.render("register", templateVars)
+    const templateVars = { email : users[req.cookies.user_id].email };
+    res.render("register", templateVars);
   } else {
     const templateVars = {  email : "" };
-    res.render("register", templateVars)
+    res.render("register", templateVars);
   }
-})
+});
 
 //post handler to append to our users db
 app.post("/register", (req,res) => {
@@ -144,18 +153,28 @@ app.post("/register", (req,res) => {
   let password = req.body.password;
   let userId = generateRandomString();
 
+  if (email === "" || password === "") {
+    res.status(400);
+    res.send("Empty email or password");
+  }
+
+  if (checkEmail(email)) {
+    res.status(400);
+    res.send("Email already exists");
+  }
+
   const newUser = {
     id : userId,
     email : email,
     password : password
-  }
+  };
 
   users[newUser.id] = newUser;
   res.cookie('user_id', userId);
 
 
-  res.redirect("/urls")
-})
+  res.redirect("/urls");
+});
 
 app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
