@@ -20,9 +20,20 @@ function generateRandomString() {
   return randomString;
 }
 
+//check email in user db
 function checkEmail(email) {
   for (let userId in users) {
     if (users[userId].email === email) {
+      return true;
+    }
+  }
+  return false;
+}
+
+//check pw in user db
+function checkPassword(password) {
+  for (let userId in users) {
+    if (users[userId].password === password) {
       return true;
     }
   }
@@ -89,16 +100,34 @@ app.post("/urls/:id/delete", (req,res) => {
   res.redirect("/urls");
 });
 
+//get to login screen
+app.get("/login", (req,res) => {
+  if (users[req.cookies.user_id]) {
+    const templateVars = { email : users[req.cookies.user_id].email };
+    res.render("login", templateVars);
+  } else {
+    const templateVars = { email : " "};
+    res.render("login", templateVars);
+  }
+});
+
 //post req to /login creates a cookie
 app.post("/login", (req,res) => {
-  const username = req.body.username;
-  res.cookie('username', username);
-  res.redirect("/urls");
+  res.send("OK")
+  res.redirect("/urls")
+  /*
+  if (checkEmail(req.body.email) && checkPassword(req.body.password)) {
+    templateVars = { email : users[loggedInUserId].email }
+    res.redirect("/urls", templateVars);
+  } else {
+    res.send("Incorrect email or password");
+  }
+  */
 });
 
 //post req to /logout and clear cookie
 app.post("/logout", (req,res) => {
-  res.clearCookie('username');
+  res.clearCookie('user_id');
   res.redirect("/urls");
 });
 
@@ -138,13 +167,7 @@ app.get("/u/:id", (req, res) => {
 
 //page to show registration page
 app.get("/register", (req,res) => {
-  if (users[req.cookies.user_id]) {
-    const templateVars = { email : users[req.cookies.user_id].email };
-    res.render("register", templateVars);
-  } else {
-    const templateVars = {  email : "" };
-    res.render("register", templateVars);
-  }
+    res.render("register");
 });
 
 //post handler to append to our users db
