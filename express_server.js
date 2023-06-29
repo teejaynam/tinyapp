@@ -20,21 +20,11 @@ function generateRandomString() {
   return randomString;
 }
 
-//check email in user db
+//check email in user db 
 function checkEmail(email) {
   for (let userId in users) {
     if (users[userId].email === email) {
-      return true;
-    }
-  }
-  return false;
-}
-
-//check pw in user db
-function checkPassword(password) {
-  for (let userId in users) {
-    if (users[userId].password === password) {
-      return true;
+      return userId;
     }
   }
   return false;
@@ -46,17 +36,17 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
-//the database for usernames
+//the database for users
 const users = {
   userRandomID: {
     id: "userRandomID",
     email: "user@example.com",
-    password: "purple-monkey-dinosaur",
+    password: "purple",
   },
   user2RandomID: {
     id: "user2RandomID",
     email: "user2@example.com",
-    password: "dishwasher-funk",
+    password: "funk",
   },
 };
 
@@ -71,7 +61,7 @@ app.get("/urls", (req,res) => {
     const templateVars = { urls: urlDatabase, email : users[req.cookies.user_id].email };
     res.render('urls_index', templateVars);
   } else {
-    const templateVars = { urls: urlDatabase, email : " "};
+    const templateVars = { urls: urlDatabase, email : ""};
     res.render('urls_index', templateVars);
   }
 });
@@ -106,29 +96,34 @@ app.get("/login", (req,res) => {
     const templateVars = { email : users[req.cookies.user_id].email };
     res.render("login", templateVars);
   } else {
-    const templateVars = { email : " "};
+    const templateVars = { email : ""};
     res.render("login", templateVars);
   }
 });
 
 //post req to /login creates a cookie
 app.post("/login", (req,res) => {
-  res.send("OK")
-  res.redirect("/urls")
-  /*
-  if (checkEmail(req.body.email) && checkPassword(req.body.password)) {
-    templateVars = { email : users[loggedInUserId].email }
-    res.redirect("/urls", templateVars);
-  } else {
-    res.send("Incorrect email or password");
+  res.clearCookie('user_id');
+  const {email, password} = req.body;
+  const user = checkEmail(email);
+
+  if (user === false) {
+    res.status(403).send("Email not found");
   }
-  */
+  
+  if (users[user].password === password) {
+    res.cookie('user_id',users[user].id);
+    res.redirect("/urls");
+  } else {
+    res.status(403).send("Invalid credentials");
+  }
+
 });
 
 //post req to /logout and clear cookie
 app.post("/logout", (req,res) => {
   res.clearCookie('user_id');
-  res.redirect("/urls");
+  res.redirect("login");
 });
 
 //page to do post request
@@ -137,7 +132,7 @@ app.get("/urls/new", (req, res) => {
     const templateVars = { email : users[req.cookies.user_id].email };
     res.render("urls_new", templateVars);
   } else {
-    const templateVars = { email : " "};
+    const templateVars = { email : ""};
     res.render("urls_new", templateVars);
   }
 });
@@ -148,7 +143,7 @@ app.get("/urls/:id", (req, res) => {
     const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], email : users[req.cookies.user_id].email };
     res.render("urls_show", templateVars);
   } else {
-    const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], email : " "};
+    const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], email : ""};
     res.render("urls_show", templateVars);
   }
 });
@@ -156,18 +151,18 @@ app.get("/urls/:id", (req, res) => {
 //redirect to the long url
 app.get("/u/:id", (req, res) => {
   const longURL = urlDatabase[req.params.id];
-  if (users[req.cookies.user_id]) {
-    const templateVars = { email : users[req.cookies.user_id].email };
-    res.render(`${longURL}`, templateVars);
-  } else {
-    const templateVars = { email : " "};
-    res.render(`${longURL}`, templateVars);
-  }
+  res.redirect(longURL);
 });
 
 //page to show registration page
 app.get("/register", (req,res) => {
-    res.render("register");
+    if (users[req.cookies.user_id]) {
+      const templateVars = { email : users[req.cookies.user_id].email };
+      res.render("register", templateVars);
+    } else {
+      const templateVars = { email : ""};
+      res.render("register", templateVars);
+    }
 });
 
 //post handler to append to our users db
@@ -181,6 +176,7 @@ app.post("/register", (req,res) => {
     res.send("Empty email or password");
   }
 
+  //if checkEmail is truthy, then email exists, and we return error code
   if (checkEmail(email)) {
     res.status(400);
     res.send("Email already exists");
@@ -193,10 +189,7 @@ app.post("/register", (req,res) => {
   };
 
   users[newUser.id] = newUser;
-  res.cookie('user_id', userId);
-
-
-  res.redirect("/urls");
+  res.redirect("/login");
 });
 
 app.get("/urls.json", (req, res) => {
