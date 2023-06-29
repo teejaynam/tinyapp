@@ -12,13 +12,15 @@
       </div>
       <div class="navbar-nav">
         <% if (!email) { %>
-          <form method="POST" action="/login" class="form-inline">
-            <input class="form-control mr-sm-2" type="text" name="username" placeholder="Username" style="width: 200px;" />
-            <button type="submit" class="btn btn-primary">Login</button>
+          <form method="GET" action="/login" class="form-inline ml-3">
+            <button type="submit" class="btn btn-primary ml-3">Login</button>
+          </form>
+          <form method="GET" action="/register" class="form-inline">
+            <button type="submit" class="btn btn-primary ml-3">Register</button>
           </form>
         <% } else { %>
-          <a class="nav-item mr-4 text-white">Logged in as: <%= email %></a>
-          <form method="POST" action="/logout" class="form-inline">
+          <a class="nav-item mr-4 text-white ml-3">Logged in as: <%= email %></a>
+          <form method="post" action="/logout" class="form-inline">
             <button type="submit" class="btn btn-primary">Logout</button>
           </form>
         <% } %>
