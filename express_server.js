@@ -1,5 +1,6 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
+const bcrpyt = require("bcryptjs");
 const e = require("express");
 const app = express();
 const PORT = 8080;
@@ -225,7 +226,9 @@ app.post("/login", (req,res) => {
     res.status(403).send("Email not found");
   }
   
-  if (users[user].password === password) {
+  const checkPassword = bcrpyt.compareSync(password, users[user].password);
+
+  if (checkPassword) {
     res.cookie('user_id',users[user].id);
     res.redirect("/urls");
   } else {
@@ -252,9 +255,10 @@ app.get("/register", (req,res) => {
 
 //REGISTRATION, post handler to append to our users db
 app.post("/register", (req,res) => {
-  let email = req.body.email;
-  let password = req.body.password;
-  let userId = generateRandomString();
+  const email = req.body.email;
+  const password = req.body.password;
+  const hashedPassword = bcrpyt.hashSync(password, 10);
+  const userId = generateRandomString();
 
   if (email === "" || password === "") {
     res.status(400);
@@ -266,7 +270,7 @@ app.post("/register", (req,res) => {
     const newUser = {
       id : userId,
       email : email,
-      password : password
+      password : hashedPassword
     };
   
     users[newUser.id] = newUser;
