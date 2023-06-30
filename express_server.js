@@ -20,7 +20,7 @@ function generateRandomString() {
   return randomString;
 }
 
-//check email in user db 
+//check email in user db
 function checkEmail(email) {
   for (let userId in users) {
     if (users[userId].email === email) {
@@ -50,9 +50,13 @@ const users = {
   },
 };
 
-//root page
+//root page, redirect to urls
 app.get("/", (req,res) => {
-  res.send("Hello!");
+  if (users[req.cookies.user_id]) {
+    res.redirect("/urls");
+  } else {
+    res.redirect("/login");
+  }
 });
 
 //urls db page
@@ -61,21 +65,24 @@ app.get("/urls", (req,res) => {
     const templateVars = { urls: urlDatabase, email : users[req.cookies.user_id].email };
     res.render('urls_index', templateVars);
   } else {
-    const templateVars = { urls: urlDatabase, email : ""};
-    res.render('urls_index', templateVars);
+    res.redirect("/login");
   }
 });
 
 //post req to urls appends to our url db with a new shortened url
 app.post("/urls", (req, res) => {
-  let id = generateRandomString();
-  let postUrl = req.body.longURL;
-
-  //update database
-  urlDatabase[id] = postUrl;
-
-  //add redirect to use new id
-  res.redirect(`/urls/${id}`);
+  if (users[req.cookies.user_id]) {
+    let id = generateRandomString();
+    let postUrl = req.body.longURL;
+  
+    //update database
+    urlDatabase[id] = postUrl;
+  
+    //add redirect to use new id
+    res.redirect(`/urls/${id}`);
+  } else {
+    res.send("You must login to shorten URLs");
+  }
 });
 
 //post req to update urls but keep the id
@@ -90,11 +97,49 @@ app.post("/urls/:id/delete", (req,res) => {
   res.redirect("/urls");
 });
 
+//page to do post request
+app.get("/urls/new", (req, res) => {
+  if (users[req.cookies.user_id]) {
+    const templateVars = { email : users[req.cookies.user_id].email };
+    res.render("urls_new", templateVars);
+  } else {
+    res.redirect("/login");
+  }
+});
+
+//page to show long url version of shortened url with path /urls/:id
+app.get("/urls/:id", (req, res) => {
+  const id = req.params.id;
+  const url = urlDatabase[id];
+
+  if (url) {
+    if (users[req.cookies.user_id]) {
+      const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], email : users[req.cookies.user_id].email };
+      res.render("urls_show", templateVars);
+    } else {
+      res.redirect("/login")
+    }
+  } else {
+    res.status(404).send("404 not found");
+  }
+});
+
+//redirect to the long url
+app.get("/u/:id", (req, res) => {
+  const id = req.params.id;
+  const url = urlDatabase[id];
+  if (url){
+    const longURL = urlDatabase[req.params.id];
+    res.redirect(longURL);
+  } else {
+    res.status(404).send("404 - not a shortened url");
+  }
+});
+
 //get to login screen
 app.get("/login", (req,res) => {
   if (users[req.cookies.user_id]) {
-    const templateVars = { email : users[req.cookies.user_id].email };
-    res.render("login", templateVars);
+    res.redirect("/urls");
   } else {
     const templateVars = { email : ""};
     res.render("login", templateVars);
@@ -126,46 +171,17 @@ app.post("/logout", (req,res) => {
   res.redirect("login");
 });
 
-//page to do post request
-app.get("/urls/new", (req, res) => {
+//REGISTRATION, page to show registration page
+app.get("/register", (req,res) => {
   if (users[req.cookies.user_id]) {
-    const templateVars = { email : users[req.cookies.user_id].email };
-    res.render("urls_new", templateVars);
+    res.redirect("/urls");
   } else {
     const templateVars = { email : ""};
-    res.render("urls_new", templateVars);
+    res.render("register", templateVars);
   }
 });
 
-//page to show long url version of shortened url with path /urls/:id
-app.get("/urls/:id", (req, res) => {
-  if (users[req.cookies.user_id]) {
-    const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], email : users[req.cookies.user_id].email };
-    res.render("urls_show", templateVars);
-  } else {
-    const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], email : ""};
-    res.render("urls_show", templateVars);
-  }
-});
-
-//redirect to the long url
-app.get("/u/:id", (req, res) => {
-  const longURL = urlDatabase[req.params.id];
-  res.redirect(longURL);
-});
-
-//page to show registration page
-app.get("/register", (req,res) => {
-    if (users[req.cookies.user_id]) {
-      const templateVars = { email : users[req.cookies.user_id].email };
-      res.render("register", templateVars);
-    } else {
-      const templateVars = { email : ""};
-      res.render("register", templateVars);
-    }
-});
-
-//post handler to append to our users db
+//REGISTRATION, post handler to append to our users db
 app.post("/register", (req,res) => {
   let email = req.body.email;
   let password = req.body.password;
@@ -194,10 +210,6 @@ app.post("/register", (req,res) => {
 
 app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
-});
-
-app.get("/hello", (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n");
 });
 
 app.listen(PORT, () => {
