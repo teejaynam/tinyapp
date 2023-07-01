@@ -1,12 +1,21 @@
 const express = require("express");
-const cookieParser = require("cookie-parser");
-const bcrpyt = require("bcryptjs");
+const cookieSession = require("cookie-session");
+const bcrypt = require("bcryptjs");
+const bodyParser = require("body-parser");
 const e = require("express");
 const app = express();
 const PORT = 8080;
 
 app.set("view engine", "ejs");
-app.use(express.urlencoded({ extended: true }),cookieParser());
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(
+  cookieSession({
+    name: 'session',
+    secret: 'test',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+}));
 
 //the database for our urls
 const urlDatabase = {
@@ -85,7 +94,7 @@ function urlsForUser(id) {
 
 //root page, redirect to urls
 app.get("/", (req,res) => {
-  if (users[req.cookies.user_id]) {
+  if (users[req.session.user_id]) {
     res.redirect("/urls");
   } else {
     res.redirect("/login");
@@ -93,21 +102,20 @@ app.get("/", (req,res) => {
 });
 
 //urls db page
-app.get("/urls", (req,res) => {
-  const loggedOnUser = req.cookies.user_id;
-
-  if (users[loggedOnUser]) {
-    const urlsToShow = urlsForUser(loggedOnUser);
-    const templateVars = { urls: urlsToShow, email : users[req.cookies.user_id].email };
+app.get("/urls", (req, res) => {
+  if (users[req.session.user_id]) {
+    const urlsToShow = urlsForUser(req.session.user_id);
+    const templateVars = { urls: urlsToShow, email: users[req.session.user_id].email };
     res.render('urls_index', templateVars);
   } else {
     res.status(401).send("You must login to view URLs -> /login");
   }
 });
 
+
 //post req to urls appends to our url db with a new shortened url
 app.post("/urls", (req, res) => {
-  const loggedOnUser = req.cookies.user_id;
+  const loggedOnUser = req.session.user_id;
 
   if (loggedOnUser) {
     let id = generateRandomString();
@@ -133,9 +141,9 @@ app.post("/urls/:id", (req,res) => {
   const id = req.params.id;
   const newURL = req.body.longURL;
 
-  if (!users[req.cookies.user_id]) {
+  if (!users[req.session.user_id]) {
     res.status(401).send("401 You must log in to update URLs");
-  } else if (users[req.cookies.user_id].id !== urlDatabase[id].userId) {
+  } else if (users[req.session.user_id].id !== urlDatabase[id].userId) {
     res.status(403).send("403 Forbidden to UPDATE someone else's URL");
   } else {
     if (newURL) {
@@ -152,9 +160,9 @@ app.post("/urls/:id/delete", (req,res) => {
   const id = req.params.id;
   const deleteURL = urlDatabase[id] ? true : false;
   
-  if (!users[req.cookies.user_id]) {
+  if (!users[req.session.user_id]) {
     res.status(401).send("401 You must log in to delete");
-  } else if (users[req.cookies.user_id].id !== urlDatabase[id].userId) {
+  } else if (users[req.session.user_id].id !== urlDatabase[id].userId) {
     res.status(403).send("403 Forbidden to delete someone else's URL");
   } else {
     if (deleteURL) {
@@ -169,8 +177,8 @@ app.post("/urls/:id/delete", (req,res) => {
 
 //page to do post request
 app.get("/urls/new", (req, res) => {
-  if (users[req.cookies.user_id]) {
-    const templateVars = { email : users[req.cookies.user_id].email };
+  if (users[req.session.user_id]) {
+    const templateVars = { email : users[req.session.user_id].email };
     res.render("urls_new", templateVars);
   } else {
     res.redirect("/login");
@@ -184,12 +192,12 @@ app.get("/urls/:id", (req, res) => {
 
   if (!url) {
     res.status(404).send("404 Not Found");
-  } else if (!users[req.cookies.user_id]) {
+  } else if (!users[req.session.user_id]) {
     res.status(401).send("401 You must log in");
-  } else if (users[req.cookies.user_id].id !== urlDatabase[id].userId) {
+  } else if (users[req.session.user_id].id !== urlDatabase[id].userId) {
     res.status(403).send("403 Forbidden to edit someone else's URL");
   } else {
-    const templateVars = { id: req.params.id, longURL: url, email: users[req.cookies.user_id].email };
+    const templateVars = { id: req.params.id, longURL: url, email: users[req.session.user_id].email };
     res.render("urls_show", templateVars);
   }
 });
@@ -208,7 +216,7 @@ app.get("/u/:id", (req, res) => {
 
 //get to login screen
 app.get("/login", (req,res) => {
-  if (users[req.cookies.user_id]) {
+  if (users[req.session.user_id]) {
     res.redirect("/urls");
   } else {
     const templateVars = { email : ""};
@@ -218,7 +226,6 @@ app.get("/login", (req,res) => {
 
 //post req to /login creates a cookie
 app.post("/login", (req,res) => {
-  res.clearCookie('user_id');
   const {email, password} = req.body;
   const user = checkEmail(email);
 
@@ -226,10 +233,10 @@ app.post("/login", (req,res) => {
     res.status(403).send("Email not found");
   }
   
-  const checkPassword = bcrpyt.compareSync(password, users[user].password);
+  const checkPassword = bcrypt.compareSync(password, users[user].password);
 
   if (checkPassword) {
-    res.cookie('user_id',users[user].id);
+    req.session.user_id = user;
     res.redirect("/urls");
   } else {
     res.status(403).send("Invalid credentials");
@@ -239,13 +246,13 @@ app.post("/login", (req,res) => {
 
 //post req to /logout and clear cookie
 app.post("/logout", (req,res) => {
-  res.clearCookie('user_id');
-  res.redirect("login");
+  req.session = null;
+  res.redirect("/login");
 });
 
 //REGISTRATION, page to show registration page
 app.get("/register", (req,res) => {
-  if (users[req.cookies.user_id]) {
+  if (users[req.session.user_id]) {
     res.redirect("/urls");
   } else {
     const templateVars = { email : ""};
@@ -257,7 +264,7 @@ app.get("/register", (req,res) => {
 app.post("/register", (req,res) => {
   const email = req.body.email;
   const password = req.body.password;
-  const hashedPassword = bcrpyt.hashSync(password, 10);
+  const hashedPassword = bcrypt.hashSync(password, 10);
   const userId = generateRandomString();
 
   if (email === "" || password === "") {
