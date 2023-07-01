@@ -3,13 +3,14 @@ const cookieSession = require("cookie-session");
 const bcrypt = require("bcryptjs");
 const bodyParser = require("body-parser");
 const e = require("express");
+const { checkEmail, generateRandomString, urlsForUser } = require("./helper")
 const app = express();
 const PORT = 8080;
 
 app.set("view engine", "ejs");
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true }));
 app.use(
   cookieSession({
     name: 'session',
@@ -47,50 +48,6 @@ const users = {
   },
 };
 
-//6 character alphanumeric random string generator for shortened urls
-function generateRandomString() {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let randomString = '';
-  
-  for (let i = 0; i < 6; i++) {
-    const randomIndex = Math.floor(Math.random() * characters.length);
-    randomString += characters[randomIndex];
-  }
-  
-  return randomString;
-}
-
-//function to check email in user db
-function checkEmail(email) {
-  for (let userId in users) {
-    if (users[userId].email === email) {
-      return userId;
-    }
-  }
-  return false;
-}
-
-//function that returns object of urls made by a specific user
-function urlsForUser(id) {
-  const matchingURLs = {};
-  for (let urlID in urlDatabase) {
-
-    const url = urlDatabase[urlID];
-
-    if (url.userId === id) {
-
-      const urlDB = {
-        [urlID] : {
-          longURL : url.longURL,
-          userId : url.userId
-        }
-      };
-
-      Object.assign(matchingURLs, urlDB);
-    }
-  }
-  return matchingURLs;
-}
 
 //root page, redirect to urls
 app.get("/", (req,res) => {
@@ -104,7 +61,7 @@ app.get("/", (req,res) => {
 //urls db page
 app.get("/urls", (req, res) => {
   if (users[req.session.user_id]) {
-    const urlsToShow = urlsForUser(req.session.user_id);
+    const urlsToShow = urlsForUser(req.session.user_id, urlDatabase);
     const templateVars = { urls: urlsToShow, email: users[req.session.user_id].email };
     res.render('urls_index', templateVars);
   } else {
@@ -227,7 +184,7 @@ app.get("/login", (req,res) => {
 //post req to /login creates a cookie
 app.post("/login", (req,res) => {
   const {email, password} = req.body;
-  const user = checkEmail(email);
+  const user = checkEmail(email, users);
 
   if (user === false) {
     res.status(403).send("Email not found");
@@ -270,7 +227,7 @@ app.post("/register", (req,res) => {
   if (email === "" || password === "") {
     res.status(400);
     res.send("Empty email or password");
-  } else if (checkEmail(email)) {   //if checkEmail is truthy, then email exists, and we return error code
+  } else if (checkEmail(email, users)) {   //if checkEmail is truthy, then email exists, and we return error code
     res.status(400);
     res.send("Email already exists");
   } else {
