@@ -3,7 +3,7 @@ const cookieSession = require("cookie-session");
 const bcrypt = require("bcryptjs");
 const bodyParser = require("body-parser");
 const e = require("express");
-const { checkEmail, generateRandomString, urlsForUser } = require("./helpers")
+const { getUserByEmail, generateRandomString, urlsForUser } = require("./helpers");
 const app = express();
 const PORT = 8080;
 
@@ -16,7 +16,7 @@ app.use(
     name: 'session',
     secret: 'test',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
-}));
+  }));
 
 //the database for our urls
 const urlDatabase = {
@@ -163,7 +163,8 @@ app.get("/urls/:id", (req, res) => {
 //redirect to the long url
 app.get("/u/:id", (req, res) => {
   const id = req.params.id;
-  const url = urlDatabase[id].longURL;
+  const url = urlDatabase[id] ? urlDatabase[id].longURL : undefined;
+
   if (url) {
     res.redirect(url);
   } else {
@@ -184,21 +185,20 @@ app.get("/login", (req,res) => {
 //post req to /login creates a cookie
 app.post("/login", (req,res) => {
   const {email, password} = req.body;
-  const user = checkEmail(email, users);
+  const user = getUserByEmail(email, users);
 
-  if (user === false) {
+  if (user === undefined) {
     res.status(403).send("Email not found");
-  }
-  
-  const checkPassword = bcrypt.compareSync(password, users[user].password);
-
-  if (checkPassword) {
-    req.session.user_id = user;
-    res.redirect("/urls");
   } else {
-    res.status(403).send("Invalid credentials");
-  }
+    const checkPassword = bcrypt.compareSync(password, users[user].password);
 
+    if (checkPassword) {
+      req.session.user_id = user;
+      res.redirect("/urls");
+    } else {
+      res.status(403).send("Invalid credentials");
+    }
+  }
 });
 
 //post req to /logout and clear cookie
@@ -227,7 +227,7 @@ app.post("/register", (req,res) => {
   if (email === "" || password === "") {
     res.status(400);
     res.send("Empty email or password");
-  } else if (checkEmail(email, users)) {   //if checkEmail is truthy, then email exists, and we return error code
+  } else if (getUserByEmail(email, users)) {   //if getUserByEmail is truthy, then email exists, and we return error code
     res.status(400);
     res.send("Email already exists");
   } else {
