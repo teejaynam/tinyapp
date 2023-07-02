@@ -1,5 +1,5 @@
 //function to check email in user db
-const checkEmail = function(email, database) {
+const getUserByEmail = function(email, database) {
   for (let userId in database) {
     if (database[userId].email === email) {
       return userId;
@@ -43,4 +43,4 @@ const urlsForUser = function(id, database) {
   return matchingURLs;
 }
 
-module.exports = { checkEmail, generateRandomString, urlsForUser };
+module.exports = { getUserByEmail, generateRandomString, urlsForUser };
